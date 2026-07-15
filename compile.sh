@@ -42,7 +42,7 @@ EXT_XXHASH_VERSION="0.2.0"
 EXT_ARRAYDEBUG_VERSION="0.2.1"
 EXT_ENCODING_VERSION="1.0.0"
 EXT_MONGODB_VERSION="2.3.3"
-EXT_BINARY_VERSION="1.0.0"
+EXT_BINARY_VERSION="1.0.1"
 EXT_RDKAFKA_VERSION="6.0.4"
 EXT_ZSTD_VERSION="0.15.2"
 EXT_GRPC_VERSION="1.76.0"
@@ -1753,7 +1753,12 @@ $HAVE_MYSQLI \
 --enable-mongodb \
 --enable-binary \
 $HAVE_VALGRIND \
-$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
+$CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1 || {
+	echo
+	write_error "PHP configure failed. Last 200 lines of install.log:"
+	tail -n 200 "$DIR/install.log" >&2
+	exit 1
+}
 write_compile
 if [ "$COMPILE_FOR_ANDROID" == "yes" ]; then
 	sed -i=".backup" 's/-export-dynamic/-all-static/g' Makefile
@@ -1765,7 +1770,12 @@ if [[ "$DO_STATIC" == "yes" ]]; then
 	sed -i=".backup" 's/--mode=link $(CC)/--mode=link $(CXX)/g' Makefile
 fi
 
-make -j $THREADS >> "$DIR/install.log" 2>&1
+make -j $THREADS >> "$DIR/install.log" 2>&1 || {
+	echo
+	write_error "PHP compilation failed. Last 200 lines of install.log:"
+	tail -n 200 "$DIR/install.log" >&2
+	exit 1
+}
 write_install
 make install >> "$DIR/install.log" 2>&1
 
