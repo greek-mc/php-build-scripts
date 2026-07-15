@@ -41,6 +41,8 @@ EXT_MORTON_VERSION="0.1.2"
 EXT_XXHASH_VERSION="0.2.0"
 EXT_ARRAYDEBUG_VERSION="0.2.1"
 EXT_ENCODING_VERSION="1.0.0"
+EXT_MONGODB_VERSION="2.3.3"
+EXT_BINARY_VERSION="1.0.0"
 EXT_RDKAFKA_VERSION="6.0.4"
 EXT_ZSTD_VERSION="0.15.2"
 EXT_GRPC_VERSION="1.76.0"
@@ -1473,6 +1475,10 @@ get_github_extension "arraydebug" "$EXT_ARRAYDEBUG_VERSION" "pmmp" "ext-arraydeb
 
 get_github_extension "encoding" "$EXT_ENCODING_VERSION" "pmmp" "ext-encoding"
 
+get_pecl_extension "mongodb" "$EXT_MONGODB_VERSION"
+
+get_github_extension "binary" "$EXT_BINARY_VERSION" "pocketmineplus" "ext-binary"
+
 get_github_extension "grpc" "$EXT_GRPC_VERSION" "larryTheCoder" "php-grpc"
 
 get_github_extension "vanillagenerator" "$EXT_VANILLAGENERATOR_VERSION" "NetherGamesMC" "ext-vanillagenerator"
@@ -1744,6 +1750,8 @@ $HAVE_MYSQLI \
 --enable-xxhash \
 --enable-arraydebug \
 --enable-encoding \
+--enable-mongodb \
+--enable-binary \
 $HAVE_VALGRIND \
 $CONFIGURE_FLAGS >> "$DIR/install.log" 2>&1
 write_compile
