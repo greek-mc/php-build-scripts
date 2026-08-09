@@ -54,6 +54,15 @@ jobs:
           set -ex
           trap "exit 1" ERR
           ./compile.sh -t linux64 -j 4 -g -F -P ${{ inputs.pm-version-major }} -c ./download_cache -D -z ${{ inputs.php-version-base }}
+          
+      - name: Find install.log
+        if: always()
+        run: |
+          echo "=== Buscando install.log ==="
+          find . -name "install.log" -type f -print
+          
+          echo "=== Contenido de install.log ==="
+          find . -name "install.log" -type f -exec sh -c 'echo "===== $1 ====="; cat "$1"' _ {} \;
 
       - name: Create tarball
         run: |
