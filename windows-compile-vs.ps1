@@ -18,7 +18,7 @@ $LIBZSTD_VER="1.5.7"
 $LIBGRPC_VER="1.76.0"
 $LIBSNAPPY_VER="1.2.2"
 
-$PHP_PMMPTHREAD_VER="6.3.0"
+$PHP_PMMPTHREAD_VER="6.4.0"
 $PHP_YAML_VER="2.3.0"
 $PHP_CHUNKUTILS2_VER="0.3.5"
 $PHP_IGBINARY_VER="3.2.16"
@@ -309,9 +309,9 @@ function create-extension-directories {
         "ext\bz2", "ext\calendar", "ext\chunkutils2", "ext\chunkutils2\src", "ext\crypto", "ext\ctype",
         "ext\curl", "ext\date", "ext\date\lib", "ext\dom", "ext\dom\lexbor", "ext\dom\lexbor\selectors-adapted",
         "ext\dom\parentnode", "ext\ext-arraydebug-0.2.1", "ext\ext-encoding-1.0.0", "ext\ext-encoding-1.0.0\classes",
-        "ext\ext-libdeflate-0.2.1", "ext\ext-pmmpthread-4aa34a27feaa43adba5f1e93939828d1d7afdefc",
-        "ext\ext-pmmpthread-4aa34a27feaa43adba5f1e93939828d1d7afdefc\classes",
-        "ext\ext-pmmpthread-4aa34a27feaa43adba5f1e93939828d1d7afdefc\src", "ext\ext-recursionguard-0.1.0",
+        "ext\ext-libdeflate-0.2.1", "ext\ext-pmmpthread-d8adcae82e6f0d5cd7bd234ef29bae00ebab5e99",
+        "ext\ext-pmmpthread-d8adcae82e6f0d5cd7bd234ef29bae00ebab5e99\classes",
+        "ext\ext-pmmpthread-d8adcae82e6f0d5cd7bd234ef29bae00ebab5e99\src", "ext\ext-recursionguard-0.1.0",
         "ext\ext-vanillagenerator-2.1.7", "ext\ext-vanillagenerator-2.1.7\lib", "ext\ext-vanillagenerator-2.1.7\lib\biomes",
         "ext\ext-vanillagenerator-2.1.7\lib\chunk", "ext\ext-vanillagenerator-2.1.7\lib\generator",
         "ext\ext-vanillagenerator-2.1.7\lib\generator\biomegrid", "ext\ext-vanillagenerator-2.1.7\lib\generator\ground",
@@ -677,7 +677,7 @@ function get-github-extension {
 
 function download-php-extensions {
     Push-Location "$SOURCES_PATH\ext" >> $log_file 2>&1
-    get-github-extension "pmmpthread" $PHP_PMMPTHREAD_VER "pmmp" "ext-pmmpthread"
+    get-github-extension "pmmpthread" $PHP_PMMPTHREAD_VER "bitpvp-new" "ext-pmmpthread"
     get-github-extension "vanillagenerator"      $PHP_VANILLAGENERATOR_VER      "NetherGamesMC" "ext-vanillagenerator"
     get-github-extension "yaml"                  $PHP_YAML_VER                  "php"      "pecl-file_formats-yaml"
     get-github-extension "chunkutils2"           $PHP_CHUNKUTILS2_VER           "pmmp"     "ext-chunkutils2"
