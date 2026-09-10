@@ -1,5 +1,7 @@
-﻿$ErrorActionPreference="Stop"
+$ErrorActionPreference="Stop"
 $ProgressPreference="SilentlyContinue"
+$PSDefaultParameterValues['Out-File:Encoding'] = 'utf8'
+$env:CMAKE_POLICY_VERSION_MINIMUM="3.5"
 
 $PHP_VERSIONS=@("8.1.34", "8.2.30", "8.3.30", "8.4.17", "8.5.2")
 
@@ -194,7 +196,7 @@ $PHP_DISPLAY_VER="$PHP_VER"
 $CMAKE_TARGET="Visual Studio 17 2022"
 
 $VC_VER=""
-$SDL_TOOLSET_FLAG=""
+$SDK_TOOLSET_FLAG=""
 $CMAKE_TOOLSET_FLAG=""
 
 $PHP_VERSION_ID = php-version-id $PHP_VER
@@ -252,7 +254,7 @@ if (Test-Path $SOURCES_PATH) {
 }
 $LIB_BUILD_DIR="$BASE_PATH\deps-build-php-$PHP_VERSION_BASE-$($OUT_PATH_REL.ToLower())"
 
-if (Test-Path "$LIB_BUILD_DIR") {
+if ($env:CLEAN_BUILD -eq 1 -and (Test-Path "$LIB_BUILD_DIR")) {
     pm-echo "Deleting old deps build workspace $LIB_BUILD_DIR..."
     Remove-Item -Recurse -Force "$LIB_BUILD_DIR" >> $log_file 2>&1
 }
@@ -273,7 +275,7 @@ function download-file {
     } else {
         echo "Downloading file from $url to $cached_path" >> $log_file
         #download to a tmpfile first, so that we don't leave borked cache entries for later runs
-        Invoke-WebRequest -Uri $url -OutFile "$download_cache/.temp" >> $log_file 2>&1
+        Invoke-WebRequest -Uri $url -OutFile "$download_cache/.temp" -UseBasicParsing >> $log_file 2>&1
         Move-Item "$download_cache/.temp" $cached_path >> $log_file 2>&1
     }
     if (!(Test-Path $cached_path)) {
@@ -309,9 +311,9 @@ function create-extension-directories {
         "ext\bz2", "ext\calendar", "ext\chunkutils2", "ext\chunkutils2\src", "ext\crypto", "ext\ctype",
         "ext\curl", "ext\date", "ext\date\lib", "ext\dom", "ext\dom\lexbor", "ext\dom\lexbor\selectors-adapted",
         "ext\dom\parentnode", "ext\ext-arraydebug-0.2.1", "ext\ext-encoding-1.0.0", "ext\ext-encoding-1.0.0\classes",
-        "ext\ext-libdeflate-0.2.1", "ext\ext-pmmpthread-d8adcae82e6f0d5cd7bd234ef29bae00ebab5e99",
-        "ext\ext-pmmpthread-d8adcae82e6f0d5cd7bd234ef29bae00ebab5e99\classes",
-        "ext\ext-pmmpthread-d8adcae82e6f0d5cd7bd234ef29bae00ebab5e99\src", "ext\ext-recursionguard-0.1.0",
+        "ext\ext-libdeflate-0.2.1", "ext\ext-pmmpthread-$PHP_PMMPTHREAD_VER",
+        "ext\ext-pmmpthread-$PHP_PMMPTHREAD_VER\classes",
+        "ext\ext-pmmpthread-$PHP_PMMPTHREAD_VER\src", "ext\ext-recursionguard-0.1.0",
         "ext\ext-vanillagenerator-2.1.7", "ext\ext-vanillagenerator-2.1.7\lib", "ext\ext-vanillagenerator-2.1.7\lib\biomes",
         "ext\ext-vanillagenerator-2.1.7\lib\chunk", "ext\ext-vanillagenerator-2.1.7\lib\generator",
         "ext\ext-vanillagenerator-2.1.7\lib\generator\biomegrid", "ext\ext-vanillagenerator-2.1.7\lib\generator\ground",
@@ -408,6 +410,11 @@ function download-php-deps {
 
 function build-snappy {
     write-library "snappy" $LIBSNAPPY_VER
+    if (Test-Path "$DEPS_DIR\lib\snappy.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     (& cmd.exe /c "git clone -b $LIBSNAPPY_VER https://github.com/google/snappy snappy 2>&1") >> $log_file
     Push-Location snappy
@@ -416,6 +423,7 @@ function build-snappy {
 
     write-configure
     sdk-command "cmake -GNinja^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DCMAKE_BUILD_TYPE=`"$MSBUILD_CONFIGURATION`"^`
@@ -431,6 +439,15 @@ function build-snappy {
 
 function build-grpc {
     write-library "grpc" $LIBGRPC_VER
+    if ((Test-Path "$DEPS_DIR\lib\grpc.lib") -and (Test-Path "$LIB_BUILD_DIR\grpc\grpc_php_plugin.exe")) {
+        write-cached
+        if (Test-Path "$LIB_BUILD_DIR\grpc\third_party\protobuf\php\ext\google\protobuf") {
+            Copy-Item -Recurse -Force "$LIB_BUILD_DIR\grpc\third_party\protobuf\php\ext\google\protobuf" "$SOURCES_PATH\ext\protobuf" >> $log_file 2>&1
+            Copy-Item -Recurse -Force "$LIB_BUILD_DIR\grpc\third_party\protobuf\third_party" "$SOURCES_PATH\ext\protobuf\third_party" >> $log_file 2>&1
+        }
+        write-done
+        return
+    }
     write-download
     (& cmd.exe /c "git clone -b v$LIBGRPC_VER --depth=1 https://github.com/grpc/grpc grpc 2>&1") >> $log_file
     Push-Location grpc
@@ -438,7 +455,8 @@ function build-grpc {
     (& cmd.exe /c "git submodule update --depth=1 --init 2>&1") >> $log_file
 
     write-configure
-    sdk-command "cmake -GNinja^
+    sdk-command "cmake -GNinja^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DCMAKE_BUILD_TYPE=`"$MSBUILD_CONFIGURATION`"^`
@@ -458,8 +476,8 @@ function build-grpc {
     write-install
     sdk-command "cmake -P cmake_install.cmake || exit 1"
 
-    Move-Item "third_party\protobuf\php\ext\google\protobuf" "$SOURCES_PATH\ext\protobuf" >> $log_file 2>&1
-    Move-Item "third_party\protobuf\third_party" "$SOURCES_PATH\ext\protobuf\third_party" >> $log_file 2>&1
+    Copy-Item -Recurse -Force "third_party\protobuf\php\ext\google\protobuf" "$SOURCES_PATH\ext\protobuf" >> $log_file 2>&1
+    Copy-Item -Recurse -Force "third_party\protobuf\third_party" "$SOURCES_PATH\ext\protobuf\third_party" >> $log_file 2>&1
 
 @"
 ARG_ENABLE("protobuf", "Enable Protobuf extension", "yes");
@@ -488,6 +506,11 @@ if (PHP_PROTOBUF != "no") {
 
 function build-zstd {
     write-library "zstd" $LIBZSTD_VER
+    if (Test-Path "$DEPS_DIR\lib\zstd.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     $file = download-file "https://github.com/facebook/zstd/archive/v$LIBZSTD_VER.zip" "zstd"
     write-extracting
@@ -497,6 +520,7 @@ function build-zstd {
 
     write-configure
     sdk-command "cmake -G `"$CMAKE_TARGET`" -A `"$ARCH`"^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DBUILD_SHARED_LIBS=ON^`
@@ -511,6 +535,11 @@ function build-zstd {
 
 function build_rdkafka {
     write-library "librdkafka" $LIBRDKAFKA_VER
+    if (Test-Path "$DEPS_DIR\lib\librdkafka.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     $file = download-file "https://github.com/confluentinc/librdkafka/archive/v$LIBRDKAFKA_VER.zip" "librdkafka"
     write-extracting
@@ -520,6 +549,7 @@ function build_rdkafka {
 
     write-configure
     sdk-command "cmake -G `"$CMAKE_TARGET`" -A `"$ARCH`"^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DBUILD_SHARED_LIBS=ON^`
@@ -538,8 +568,8 @@ function build_rdkafka {
 
     # for no reason, php-rdkafka check for librdkafka and not rdkafka
     # move them to the appropriate location for php-rdkafka compatibility.
-    Move-Item "$DEPS_DIR\lib\rdkafka.lib" "$DEPS_DIR\lib\librdkafka.lib" >> $log_file 2>&1
-    Move-Item "$DEPS_DIR\lib\rdkafka++.lib" "$DEPS_DIR\lib\librdkafka++.lib" >> $log_file 2>&1
+    Move-Item -Force "$DEPS_DIR\lib\rdkafka.lib" "$DEPS_DIR\lib\librdkafka.lib" >> $log_file 2>&1
+    Move-Item -Force "$DEPS_DIR\lib\rdkafka++.lib" "$DEPS_DIR\lib\librdkafka++.lib" >> $log_file 2>&1
 
     write-done
     Pop-Location
@@ -547,6 +577,11 @@ function build_rdkafka {
 
 function build-yaml {
     write-library "yaml" $LIBYAML_VER
+    if (Test-Path "$DEPS_DIR\lib\yaml.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     $file = download-file "https://github.com/yaml/libyaml/archive/$LIBYAML_VER.zip" "yaml"
     write-extracting
@@ -556,6 +591,7 @@ function build-yaml {
 
     write-configure
     sdk-command "cmake -G `"$CMAKE_TARGET`" $CMAKE_TOOLSET_FLAG^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DBUILD_SHARED_LIBS=ON^`
@@ -571,6 +607,11 @@ function build-yaml {
 
 function build-pthreads4w {
     write-library "pthreads4w" $PTHREAD_W32_VER
+    if (Test-Path "$DEPS_DIR\lib\pthreadVC3.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     $file = download-file "https://github.com/pmmp/DependencyMirror/releases/download/mirror/pthreads4w-code-v$PTHREAD_W32_VER.zip" "pthreads4w"
     write-extracting
@@ -595,6 +636,11 @@ function build-pthreads4w {
 
 function build-leveldb {
     write-library "leveldb" $LEVELDB_MCPE_VER
+    if (Test-Path "$DEPS_DIR\lib\leveldb.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     $file = download-file "https://github.com/pmmp/leveldb/archive/$LEVELDB_MCPE_VER.zip" "leveldb"
     write-extracting
@@ -604,6 +650,7 @@ function build-leveldb {
 
     write-configure
     sdk-command "cmake -G `"$CMAKE_TARGET`" $CMAKE_TOOLSET_FLAG^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DBUILD_SHARED_LIBS=ON^`
@@ -623,6 +670,11 @@ function build-leveldb {
 
 function build-libdeflate {
     write-library "libdeflate" $LIBDEFLATE_VER
+    if (Test-Path "$DEPS_DIR\lib\deflate.lib") {
+        write-cached
+        write-done
+        return
+    }
     write-download
     $file = download-file "https://github.com/ebiggers/libdeflate/archive/$LIBDEFLATE_VER.zip" "libdeflate"
     write-extracting
@@ -633,6 +685,7 @@ function build-libdeflate {
     write-configure
     #TODO: not sure why we have arch here but not on other cmake targets
     sdk-command "cmake -G `"$CMAKE_TARGET`" -A `"$ARCH`" $CMAKE_TOOLSET_FLAG^`
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5^`
         -DCMAKE_PREFIX_PATH=`"$DEPS_DIR`"^`
         -DCMAKE_INSTALL_PREFIX=`"$DEPS_DIR`"^`
         -DLIBDEFLATE_BUILD_GZIP=OFF^`
@@ -755,7 +808,9 @@ ADD_FLAG("CFLAGS_CURL", "/D CURL_STATICLIB");
     }
 }
 
-mkdir $LIB_BUILD_DIR >> $log_file 2>&1
+if (-not (Test-Path "$LIB_BUILD_DIR")) {
+    mkdir $LIB_BUILD_DIR >> $log_file 2>&1
+}
 cd $LIB_BUILD_DIR >> $log_file 2>&1
 
 build-snappy
@@ -848,7 +903,7 @@ sdk-command "configure^`
 
 if ($PHP_VERSION_ID -ge 80500) {
     # Create all required extension directories, we do this manually because we exceeded Makefile length limit...
-    create-extension-directories "$SOURCES_PATH\x64\Release_TS"
+    create-extension-directories "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS"
     (Get-Content -Path "$SOURCES_PATH\Makefile") -replace "^BUILD_DIRS_SUB=.*", "BUILD_DIRS_SUB=" | Set-Content -Path "$SOURCES_PATH\Makefile"
 }
 
@@ -866,14 +921,18 @@ Remove-Item "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS\php-$PHP_DISPLAY_VER\gmodul
 Remove-Item -Recurse "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS\php-$PHP_DISPLAY_VER\lib\enchant\" >> $log_file 2>&1
 
 cd $outpath >> $log_file 2>&1
-Move-Item -Force "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS\php-debug-pack-*.zip" $outpath
+if (Test-Path "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS\php-debug-pack-*.zip") {
+    Move-Item -Force "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS\php-debug-pack-*.zip" $outpath
+}
 Remove-Item -Recurse bin -ErrorAction Continue >> $log_file 2>&1
 mkdir bin >> $log_file 2>&1
 Move-Item "$SOURCES_PATH\$ARCH\$($OUT_PATH_REL)_TS\php-$PHP_DISPLAY_VER" bin\php
 
-mkdir bin\grpc >> $log_file 2>&1
-Move-Item "$LIB_BUILD_DIR\grpc\grpc_php_plugin.exe" "bin\grpc\grpc_php_plugin.exe" >> $log_file 2>&1
-Move-Item "$LIB_BUILD_DIR\grpc\third_party\protobuf\protoc.exe" "bin\grpc\protoc.exe" >> $log_file 2>&1
+if (-not (Test-Path "bin\grpc")) {
+    mkdir bin\grpc >> $log_file 2>&1
+}
+Copy-Item -Force "$LIB_BUILD_DIR\grpc\grpc_php_plugin.exe" "bin\grpc\grpc_php_plugin.exe" >> $log_file 2>&1
+Copy-Item -Force "$LIB_BUILD_DIR\grpc\third_party\protobuf\protoc.exe" "bin\grpc\protoc.exe" >> $log_file 2>&1
 
 $php_exe = "$outpath\bin\php\php.exe"
 
